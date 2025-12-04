@@ -69,7 +69,7 @@ app.get('/api/movie/:id', async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
-});
+});w
 
 // Show details
 app.get('/api/show/:id', async (req, res) => {
