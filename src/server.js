@@ -117,6 +117,18 @@ app.get('/api/febbox/links', async (req, res) => {
     }
 });
 
+app.get('/api/febbox/imdb', async (req, res) => {
+    const { shareKey, fid } = req.query;
+    const cookie = req.headers['x-auth-cookie'] || null;
+    try {
+        const files = await febboxAPI.getIMDBId(shareKey, fid , cookie);
+        res.json(files);
+        // res.json({ data: files });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Start the server
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
