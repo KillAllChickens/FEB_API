@@ -162,9 +162,12 @@ app.get('/api/stream', async (req, res) => {
 
     try {
         // Prepare headers for the upstream request
+        // Using okhttp user agent to match the mobile app behavior
         const headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-            'Referer': 'https://www.showbox.media/',
+            'User-Agent': 'okhttp/3.2.0',
+            'Accept': '*/*',
+            'Accept-Encoding': 'identity',
+            'Connection': 'keep-alive',
         };
 
         // Forward range header if present (for video seeking)
@@ -172,11 +175,31 @@ app.get('/api/stream', async (req, res) => {
             headers['Range'] = req.headers.range;
         }
 
-        // Fetch the video stream from the source URL
-        const response = await fetch(url, { headers });
+        console.log(`[Stream Proxy] Fetching: ${url}`);
+        
+        // Fetch the video stream from the source URL with redirect following
+        const response = await fetch(url, { 
+            headers,
+            redirect: 'follow',
+            timeout: 30000
+        });
+
+        console.log(`[Stream Proxy] Response status: ${response.status} ${response.statusText}`);
+        console.log(`[Stream Proxy] Response headers:`, Object.fromEntries(response.headers.entries()));
 
         if (!response.ok) {
-            throw new Error(`Failed to fetch stream: ${response.status} ${response.statusText}`);
+            const errorBody = await response.text().catch(() => 'Unable to read error body');
+            console.error(`[Stream Proxy] Error response body:`, errorBody);
+            
+            // Provide helpful error messages based on status code
+            let errorMessage = `Failed to fetch stream: ${response.status} ${response.statusText}.`;
+            if (response.status === 404) {
+                errorMessage += ' The video file was not found at this URL. The URL may be invalid, expired, or the file may have been removed.';
+            } else if (response.status === 403) {
+                errorMessage += ' Access forbidden. The URL may require authentication or may not be accessible from this server.';
+            }
+            
+            throw new Error(errorMessage);
         }
 
         // Forward the status code (important for 206 Partial Content)

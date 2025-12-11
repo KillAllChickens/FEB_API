@@ -367,9 +367,15 @@ Proxy and stream video URLs that may not resolve directly. This endpoint handles
 
 - **Features:**
   - Forwards range requests for video seeking (HTTP 206 Partial Content)
-  - Sets appropriate headers for video streaming
+  - Sets appropriate headers for video streaming (using okhttp/3.2.0 user agent)
   - Handles DNS resolution issues with problematic domains
-  - Supports caching with Cache-Control headers
+  - Supports caching with Cache-Control headers (30 minutes)
+  - Provides detailed error messages for troubleshooting
+
+- **Important Notes:**
+  - **404 Errors**: If you receive a 404 error, the video URL is likely invalid, expired, or the file has been removed from the source server. Video URLs from showbox/febbox are often temporary and may expire.
+  - **DNS Errors**: If the domain cannot be resolved, ensure the URL is correct and the domain is accessible from your server's network.
+  - **URL Sources**: This endpoint works best with URLs obtained from the `/api/febbox/links` endpoint, which provides current, valid video URLs.
 
 - **Example:**
   - Stream a video URL:
@@ -381,6 +387,14 @@ Proxy and stream video URLs that may not resolve directly. This endpoint handles
     <video controls>
       <source src="http://localhost:3000/api/stream?url=YOUR_VIDEO_URL" type="video/mp4">
     </video>
+    ```
+  - Get fresh URLs first:
+    ```bash
+    # 1. Get video links from febbox
+    curl "http://localhost:3000/api/febbox/links?shareKey=YOUR_KEY&fid=YOUR_FID"
+    
+    # 2. Use the URL from the response with the stream endpoint
+    curl "http://localhost:3000/api/stream?url=OBTAINED_VIDEO_URL"
     ```
 
 ### Sample Requests
