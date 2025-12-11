@@ -177,18 +177,23 @@ app.get('/api/stream', async (req, res) => {
 
         console.log(`[Stream Proxy] Fetching: ${url}`);
         
+        // Set up timeout using AbortController
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        
         // Fetch the video stream from the source URL with redirect following
         const response = await fetch(url, { 
             headers,
             redirect: 'follow',
-            timeout: 30000
-        });
+            signal: controller.signal
+        }).finally(() => clearTimeout(timeoutId));
 
         console.log(`[Stream Proxy] Response status: ${response.status} ${response.statusText}`);
         console.log(`[Stream Proxy] Response headers:`, Object.fromEntries(response.headers.entries()));
 
         if (!response.ok) {
-            const errorBody = await response.text().catch(() => 'Unable to read error body');
+            // Limit error body reading to 1KB to prevent memory issues
+            const errorBody = await response.text().then(text => text.slice(0, 1024)).catch(() => 'Unable to read error body');
             console.error(`[Stream Proxy] Error response body:`, errorBody);
             
             // Provide helpful error messages based on status code
