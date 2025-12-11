@@ -354,6 +354,35 @@ Fetch download links for a specific file from Febbox.
     http://localhost:3000/api/febbox/links/fNBTg8at/2636650
     ```
 
+#### 8. **Stream Proxy**
+Proxy and stream video URLs that may not resolve directly. This endpoint handles DNS resolution issues and forwards video streams, supporting range requests for seeking.
+
+- **Endpoint:**
+  ```
+  GET /api/stream
+  ```
+
+- **Parameters:**
+  - `url`: The video URL to stream (required).
+
+- **Features:**
+  - Forwards range requests for video seeking (HTTP 206 Partial Content)
+  - Sets appropriate headers for video streaming
+  - Handles DNS resolution issues with problematic domains
+  - Supports caching with Cache-Control headers
+
+- **Example:**
+  - Stream a video URL:
+    ```
+    http://localhost:3000/api/stream?url=https://mp4.shegu.net/movie_box/movie_mp4_h264/2022/4/3/40653/movie.40653.2022.360p.H264.20220321230755.mp4
+    ```
+  - Use in HTML5 video player:
+    ```html
+    <video controls>
+      <source src="http://localhost:3000/api/stream?url=YOUR_VIDEO_URL" type="video/mp4">
+    </video>
+    ```
+
 ### Sample Requests
 
 1. **Search for TV Shows:**
@@ -379,6 +408,9 @@ Fetch download links for a specific file from Febbox.
 
 8. **Get Download Links from Febbox:**
    - `http://localhost:3000/api/febbox/links/fNBTg8at/2636650`
+
+9. **Stream a Video URL:**
+   - `http://localhost:3000/api/stream?url=https://example.com/video.mp4`
 
 ---
 
