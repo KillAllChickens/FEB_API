@@ -138,10 +138,32 @@ app.get('/api/stream', async (req, res) => {
         return res.status(400).json({ error: 'URL parameter is required' });
     }
 
+    // Validate URL to prevent open proxy abuse
+    try {
+        const parsedUrl = new URL(url);
+        const allowedDomains = [
+            'shegu.net',
+            'febbox.com',
+            'showbox.media'
+        ];
+        
+        const isAllowedDomain = allowedDomains.some(domain => 
+            parsedUrl.hostname === domain || parsedUrl.hostname.endsWith('.' + domain)
+        );
+        
+        if (!isAllowedDomain) {
+            return res.status(403).json({ 
+                error: 'URL domain not allowed. Only showbox/febbox related domains are supported.' 
+            });
+        }
+    } catch (err) {
+        return res.status(400).json({ error: 'Invalid URL format' });
+    }
+
     try {
         // Prepare headers for the upstream request
         const headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
             'Referer': 'https://www.showbox.media/',
         };
 
