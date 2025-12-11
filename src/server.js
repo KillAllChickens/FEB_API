@@ -3,6 +3,7 @@ import cors from 'cors'; // Import cors package
 import ShowboxAPI from './ShowboxAPI.js';
 import FebboxAPI from './FebBoxApi.js';
 import dotenv from 'dotenv';
+import fetch from 'node-fetch';
 
 dotenv.config();
 
@@ -124,6 +125,61 @@ app.get('/api/febbox/imdb', async (req, res) => {
         const files = await febboxAPI.getIMDBId(shareKey, fid , cookie);
         res.json(files);
         // res.json({ data: files });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Stream proxy endpoint to handle video URLs that don't resolve directly
+app.get('/api/stream', async (req, res) => {
+    const { url } = req.query;
+    
+    if (!url) {
+        return res.status(400).json({ error: 'URL parameter is required' });
+    }
+
+    try {
+        // Prepare headers for the upstream request
+        const headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Referer': 'https://www.showbox.media/',
+        };
+
+        // Forward range header if present (for video seeking)
+        if (req.headers.range) {
+            headers['Range'] = req.headers.range;
+        }
+
+        // Fetch the video stream from the source URL
+        const response = await fetch(url, { headers });
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch stream: ${response.status} ${response.statusText}`);
+        }
+
+        // Forward the status code (important for 206 Partial Content)
+        res.status(response.status);
+
+        // Forward relevant headers from the upstream response
+        const contentType = response.headers.get('content-type') || 'video/mp4';
+        const contentLength = response.headers.get('content-length');
+        const contentRange = response.headers.get('content-range');
+        const acceptRanges = response.headers.get('accept-ranges');
+        
+        res.setHeader('Content-Type', contentType);
+        if (contentLength) {
+            res.setHeader('Content-Length', contentLength);
+        }
+        if (contentRange) {
+            res.setHeader('Content-Range', contentRange);
+        }
+        if (acceptRanges) {
+            res.setHeader('Accept-Ranges', acceptRanges);
+        }
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+
+        // Pipe the response stream to the client
+        response.body.pipe(res);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
