@@ -354,6 +354,49 @@ Fetch download links for a specific file from Febbox.
     http://localhost:3000/api/febbox/links/fNBTg8at/2636650
     ```
 
+#### 8. **Stream Proxy**
+Proxy and stream video URLs that may not resolve directly. This endpoint handles DNS resolution issues and forwards video streams, supporting range requests for seeking.
+
+- **Endpoint:**
+  ```
+  GET /api/stream
+  ```
+
+- **Parameters:**
+  - `url`: The video URL to stream (required).
+
+- **Features:**
+  - Forwards range requests for video seeking (HTTP 206 Partial Content)
+  - Sets appropriate headers for video streaming (using okhttp/3.2.0 user agent)
+  - Handles DNS resolution issues with problematic domains
+  - Supports caching with Cache-Control headers (30 minutes)
+  - Provides detailed error messages for troubleshooting
+
+- **Important Notes:**
+  - **404 Errors**: If you receive a 404 error, the video URL is likely invalid, expired, or the file has been removed from the source server. Video URLs from showbox/febbox are often temporary and may expire.
+  - **DNS Errors**: If the domain cannot be resolved, ensure the URL is correct and the domain is accessible from your server's network.
+  - **URL Sources**: This endpoint works best with URLs obtained from the `/api/febbox/links` endpoint, which provides current, valid video URLs.
+
+- **Example:**
+  - Stream a video URL:
+    ```
+    http://localhost:3000/api/stream?url=https://mp4.shegu.net/movie_box/movie_mp4_h264/2022/4/3/40653/movie.40653.2022.360p.H264.20220321230755.mp4
+    ```
+  - Use in HTML5 video player:
+    ```html
+    <video controls>
+      <source src="http://localhost:3000/api/stream?url=YOUR_VIDEO_URL" type="video/mp4">
+    </video>
+    ```
+  - Get fresh URLs first:
+    ```bash
+    # 1. Get video links from febbox
+    curl "http://localhost:3000/api/febbox/links?shareKey=YOUR_KEY&fid=YOUR_FID"
+    
+    # 2. Use the URL from the response with the stream endpoint
+    curl "http://localhost:3000/api/stream?url=OBTAINED_VIDEO_URL"
+    ```
+
 ### Sample Requests
 
 1. **Search for TV Shows:**
@@ -379,6 +422,9 @@ Fetch download links for a specific file from Febbox.
 
 8. **Get Download Links from Febbox:**
    - `http://localhost:3000/api/febbox/links/fNBTg8at/2636650`
+
+9. **Stream a Video URL:**
+   - `http://localhost:3000/api/stream?url=https://example.com/video.mp4`
 
 ---
 

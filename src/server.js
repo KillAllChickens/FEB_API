@@ -3,6 +3,7 @@ import cors from 'cors'; // Import cors package
 import ShowboxAPI from './ShowboxAPI.js';
 import FebboxAPI from './FebBoxApi.js';
 import dotenv from 'dotenv';
+import fetch from 'node-fetch';
 
 dotenv.config();
 
@@ -126,6 +127,123 @@ app.get('/api/febbox/imdb', async (req, res) => {
         // res.json({ data: files });
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+// Stream proxy endpoint to handle video URLs that don't resolve directly
+app.get('/api/stream', async (req, res) => {
+    const { url } = req.query;
+    
+    if (!url) {
+        return res.status(400).json({ error: 'URL parameter is required' });
+    }
+
+    // Validate URL to prevent open proxy abuse
+    try {
+        const parsedUrl = new URL(url);
+        const allowedDomains = [
+            'shegu.net',
+            'febbox.com',
+            'showbox.media'
+        ];
+        
+        const isAllowedDomain = allowedDomains.some(domain => 
+            parsedUrl.hostname === domain || parsedUrl.hostname.endsWith('.' + domain)
+        );
+        
+        if (!isAllowedDomain) {
+            return res.status(403).json({ 
+                error: 'URL domain not allowed. Only showbox/febbox related domains are supported.' 
+            });
+        }
+    } catch (err) {
+        return res.status(400).json({ error: 'Invalid URL format' });
+    }
+
+    try {
+        // Prepare headers for the upstream request
+        // Using okhttp user agent to match the mobile app behavior
+        const headers = {
+            'User-Agent': 'okhttp/3.2.0',
+            'Accept': '*/*',
+            'Accept-Encoding': 'identity',
+            'Connection': 'keep-alive',
+        };
+
+        // Forward range header if present (for video seeking)
+        if (req.headers.range) {
+            headers['Range'] = req.headers.range;
+        }
+
+        console.log(`[Stream Proxy] Fetching: ${url}`);
+        
+        // Set up timeout using AbortController
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        
+        // Fetch the video stream from the source URL with redirect following
+        const response = await fetch(url, { 
+            headers,
+            redirect: 'follow',
+            signal: controller.signal
+        }).finally(() => clearTimeout(timeoutId));
+
+        console.log(`[Stream Proxy] Response status: ${response.status} ${response.statusText}`);
+        console.log(`[Stream Proxy] Response headers:`, Object.fromEntries(response.headers.entries()));
+
+        if (!response.ok) {
+            console.error(`[Stream Proxy] Failed to fetch: ${response.status} ${response.statusText}`);
+            
+            // Provide helpful error messages based on status code
+            let errorMessage = `Failed to fetch stream: ${response.status} ${response.statusText}.`;
+            if (response.status === 404) {
+                errorMessage += ' The video file was not found at this URL. The URL may be invalid, expired, or the file may have been removed.';
+            } else if (response.status === 403) {
+                errorMessage += ' Access forbidden. The URL may require authentication or may not be accessible from this server.';
+            }
+            
+            throw new Error(errorMessage);
+        }
+
+        // Forward the status code (important for 206 Partial Content)
+        res.status(response.status);
+
+        // Forward relevant headers from the upstream response
+        const contentType = response.headers.get('content-type') || 'video/mp4';
+        const contentLength = response.headers.get('content-length');
+        const contentRange = response.headers.get('content-range');
+        const acceptRanges = response.headers.get('accept-ranges');
+        
+        res.setHeader('Content-Type', contentType);
+        if (contentLength) {
+            res.setHeader('Content-Length', contentLength);
+        }
+        if (contentRange) {
+            res.setHeader('Content-Range', contentRange);
+        }
+        if (acceptRanges) {
+            res.setHeader('Accept-Ranges', acceptRanges);
+        }
+        res.setHeader('Cache-Control', 'public, max-age=1800'); // 30 minutes cache
+
+        // Pipe the response stream to the client with error handling
+        response.body.on('error', (err) => {
+            console.error('Stream error:', err.message);
+            // Only send error response if headers haven't been sent yet
+            if (!res.headersSent) {
+                res.status(500).json({ error: err.message });
+            } else {
+                // If headers already sent, just end the response
+                res.end();
+            }
+        });
+        
+        response.body.pipe(res);
+    } catch (error) {
+        // Only send error response if headers haven't been sent yet
+        if (!res.headersSent) {
+            res.status(500).json({ error: error.message });
+        }
     }
 });
 
