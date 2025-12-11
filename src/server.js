@@ -192,9 +192,7 @@ app.get('/api/stream', async (req, res) => {
         console.log(`[Stream Proxy] Response headers:`, Object.fromEntries(response.headers.entries()));
 
         if (!response.ok) {
-            // Limit error body reading to 1KB to prevent memory issues
-            const errorBody = await response.text().then(text => text.slice(0, 1024)).catch(() => 'Unable to read error body');
-            console.error(`[Stream Proxy] Error response body:`, errorBody);
+            console.error(`[Stream Proxy] Failed to fetch: ${response.status} ${response.statusText}`);
             
             // Provide helpful error messages based on status code
             let errorMessage = `Failed to fetch stream: ${response.status} ${response.statusText}.`;
