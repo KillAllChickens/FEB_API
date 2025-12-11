@@ -198,12 +198,26 @@ app.get('/api/stream', async (req, res) => {
         if (acceptRanges) {
             res.setHeader('Accept-Ranges', acceptRanges);
         }
-        res.setHeader('Cache-Control', 'public, max-age=3600');
+        res.setHeader('Cache-Control', 'public, max-age=1800'); // 30 minutes cache
 
-        // Pipe the response stream to the client
+        // Pipe the response stream to the client with error handling
+        response.body.on('error', (err) => {
+            console.error('Stream error:', err.message);
+            // Only send error response if headers haven't been sent yet
+            if (!res.headersSent) {
+                res.status(500).json({ error: err.message });
+            } else {
+                // If headers already sent, just end the response
+                res.end();
+            }
+        });
+        
         response.body.pipe(res);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        // Only send error response if headers haven't been sent yet
+        if (!res.headersSent) {
+            res.status(500).json({ error: error.message });
+        }
     }
 });
 
